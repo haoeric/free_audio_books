@@ -190,7 +190,6 @@ def youtube_video_downloader(keyword, video_url, local_path, s3_path):
     
 
 
-
 def main():
     parser = argparse.ArgumentParser('audio_books_crawler')
     parser.add_argument('--query_string', default='audiobook|audio book',
@@ -210,11 +209,13 @@ def main():
             for video_url in video_url_list:
                 try:
                     youtube_video_downloader(keyword, video_url, args.working_dir, args.bucket_name)
-                except:
+                except Exception as e:
                     print("failed to crawl video - " + video_url)
+                    print('Error message: '+ str(e))   
             # clear video_url_list
             video_url_list.clear()
     return None
+
 
 
 if __name__ == '__main__':
