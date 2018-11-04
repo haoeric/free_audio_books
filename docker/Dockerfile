@@ -30,10 +30,12 @@ RUN apt-get -y update && apt-get install -y wget nano git build-essential yasm p
 #      apt-get update && \
 #      apt-get install -y ffmpeg
 
+RUN apt-get install yasm libmp3lame-dev
+
 # Compile and install ffmpeg from source
 RUN git clone https://github.com/FFmpeg/FFmpeg /root/ffmpeg && \
     cd /root/ffmpeg && \
-    ./configure --enable-nonfree --disable-shared --extra-cflags=-I/usr/local/include && \
+    ./configure --enable-libmp3lame --enable-nonfree --disable-shared --extra-cflags=-I/usr/local/include && \
     make -j8 && make install -j8
     
 # install python modulars

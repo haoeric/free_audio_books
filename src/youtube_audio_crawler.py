@@ -154,37 +154,49 @@ def youtube_video_downloader(keyword, video_url, local_path, s3_path):
     with youtube_dl.YoutubeDL(ydl_opts) as ydl:
         ydl.download([video_url])
 
-    print(">>>>check downloaded file")
-    downloaded_file = os.listdir(local_path)
-    if len(downloaded_file) > 0:
-        print(">>>>successfully downloaded, extract book title") 
-        in_audio_file = os.path.join(local_path, downloaded_file[0])
-        checked_in_audio_file = re.sub("\s+", "_", in_audio_file)
-        os.rename(in_audio_file, checked_in_audio_file)
-        title = os.path.basename(in_audio_file)      # remove search keyword
-        title = re.sub(keyword, '', title, flags=re.IGNORECASE)    # remove special symbol
-        title = re.sub('[!@#$]', '', title)          # remove (...)
-        title = re.sub('\([\w\s]+\)', '', title)     # remove suffix, like .webm
-        title = re.sub('\..+$', '', title)           # remove leading and trailing empty space
-        title = title.strip()                        # replace all other empty space with '-'
-        title = re.sub('\s+', '_', title).lower()    # all to lower cases
-        print(">>>>  book title: " + title) 
-        print(">>>>convert audio to mp3 format") 
-        out_origin_mp3_file = os.path.join(local_path, title + "_origin.mp3")
-        subprocess.call("ffmpeg -i %s %s" % (checked_in_audio_file, out_origin_mp3_file), shell=True)
-        print(">>>>compress mp3 to Bitrate = 32 kbps")
-        out_compressed_mp3_file = os.path.join(local_path, title + ".mp3")
-        subprocess.call("lame -b 32 %s %s" % (out_origin_mp3_file, out_compressed_mp3_file), shell=True)
-        print(">>>>upload compressed mp3 file to s3") 
-        s3.meta.client.upload_file(out_compressed_mp3_file, s3_bucket_name, 
-                                   os.path.join(keyword, title + ".mp3"))
-        print(">>>>update to dynamoDB record with complete information")  
-        record_meta['title'] = title
-        record_meta['s3_loc'] = os.path.join(s3_bucket_name, keyword, title + ".mp3")
-        # convert all float to decimal
-        res_str = json.dumps(record_meta, cls=DecimalEncoder2)
-        res_json = json.loads(res_str, parse_float=D)
-        free_audio_table.put_item(Item=res_json)
+    print(">>>>check downloaded files")
+    downloaded_files = os.listdir(local_path)
+    if len(downloaded_files) > 0:
+        print(">>>>audio files have been successfully downloaded") 
+        for file_i in downloaded_files:
+            in_audio_file = os.path.join(local_path, file_i)
+            print(in_audio_file)
+            try:
+                title = os.path.basename(in_audio_file)      # remove search keyword
+                title = re.sub(keyword, '', title, flags=re.IGNORECASE)    # remove special symbol
+                title = re.sub('[!@#$\(\)\[\]]', '', title)          # remove (...)
+                title = re.sub('\([\w\s]+\)', '', title)     # remove suffix, like .webm
+                title = re.sub('\..+$', '', title)           # remove leading and trailing empty space
+                title = title.strip()                        # replace all other empty space with '-'
+                title = re.sub('\s+', '_', title).lower()    # all to lower cases
+                checked_in_audio_file = os.path.join(local_path, re.sub("^.+\.", title+".", in_audio_file))
+                os.rename(in_audio_file, checked_in_audio_file)
+                print(checked_in_audio_file)
+                print(">>>>  book title: " + title) 
+                print(">>>>convert audio to mp3 format") 
+                out_origin_mp3_file = os.path.join(local_path, title + "_origin.mp3")
+                ffmpeg_cmd = "ffmpeg -i %s %s" % (checked_in_audio_file, out_origin_mp3_file)
+                print(ffmpeg_cmd)
+                subprocess.call(ffmpeg_cmd, shell=True)
+                print(">>>>compress mp3 to Bitrate = 32 kbps")
+                out_compressed_mp3_file = os.path.join(local_path, title + ".mp3")
+                lame_cmd = "lame -b 32 %s %s" % (out_origin_mp3_file, out_compressed_mp3_file)
+                print(lame_cmd)
+                subprocess.call(lame_cmd, shell=True)
+                print(">>>>upload compressed mp3 file to s3") 
+                s3.meta.client.upload_file(out_compressed_mp3_file, s3_bucket_name, 
+                                           os.path.join(keyword, title + ".mp3"))
+                print(">>>>update to dynamoDB record with complete information")  
+                record_meta['keyword'] = record_meta['keyword'] + "-" + title
+                record_meta['title'] = title
+                record_meta['s3_loc'] = os.path.join(s3_bucket_name, keyword, title + ".mp3")
+                # convert all float to decimal
+                res_str = json.dumps(record_meta, cls=DecimalEncoder2)
+                res_json = json.loads(res_str, parse_float=D)
+                free_audio_table.put_item(Item=res_json)
+            except Exception as e:
+                print("failed to processing video - " + in_audio_file)
+                print('Error message: '+ str(e))  
     ## clear data
     delete_working_dir(local_path)
     
