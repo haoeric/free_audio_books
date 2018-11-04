@@ -132,17 +132,18 @@ def youtube_video_downloader(keyword, video_url, local_path, s3_path):
     print("[%s] - Processing link: %s" % (keyword, video_url))
     record_meta = {"url": video_url, "keyword": keyword}
     # check existence, create new record in dynamoDB if it's new
-    exist_item = dynamodb_exists_check(video_url, free_audio_table)
-    if exist_item is None:
+    exist_items = dynamodb_exists_check(video_url, free_audio_table)
+    if exist_items is None:
         print(">>>>write url to dynamondb")
         # convert all float to decimal
         res_str = json.dumps(record_meta, cls=DecimalEncoder2)
         res_json = json.loads(res_str, parse_float=D)
         free_audio_table.put_item(Item=res_json)
     else:
-        if 's3_loc' in exist_item[0]:
-            print(">>>>item already in dynamondb, skip!")
-            return None
+        for item in exist_items:
+            if 's3_loc' in item:
+                print(">>>>item already in dynamondb, skip!")
+                return None
     print(">>>>download audio file")
     uid = str(uuid.uuid1())
     local_path = os.path.join(local_path, uid)
@@ -172,7 +173,7 @@ def youtube_video_downloader(keyword, video_url, local_path, s3_path):
                 checked_in_audio_file = os.path.join(local_path, re.sub("^.+\.", title+".", in_audio_file))
                 os.rename(in_audio_file, checked_in_audio_file)
                 print(checked_in_audio_file)
-                print(">>>>  book title: " + title) 
+                print(">>>>book title: " + title) 
                 print(">>>>convert audio to mp3 format") 
                 out_origin_mp3_file = os.path.join(local_path, title + "_origin.mp3")
                 ffmpeg_cmd = "ffmpeg -i %s %s" % (checked_in_audio_file, out_origin_mp3_file)
