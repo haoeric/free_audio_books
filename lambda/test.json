@@ -1,0 +1,8 @@
+{ 
+    "job_name": "crawl youtube audios",
+    "query_string": "audiobook",
+    "bucket_name": "haoeric-audio-books",
+    "working_dir": "/scratch",
+    "jobDefinition": "youtube_audio_loader:1",
+    "jobQueue": "highPriority-haoeric-sydney-optimal-spot"
+}
